@@ -1,7 +1,14 @@
-import express, { Express, Request, Response } from 'express';
+import express, { Express, NextFunction, Request, Response } from 'express';
 import { getXataClient } from './xata';
 import dotenv from 'dotenv';
 import { RequestHandler } from 'express';
+import {
+    CustomError,
+    customErrorHandler
+} from './../middleware/customErrorHandler';
+
+import { validateEvent } from './../middleware/eventValidators';
+import { validateEventId } from './../middleware/eventIDValidator';
 
 dotenv.config();
 
@@ -40,7 +47,7 @@ app.get('/events', async (req: Request, res: Response) => {
 });
 
 // Add a new event
-app.post('/events', async (req: Request, res: Response) => {
+app.post('/events', validateEvent ,async (req: Request, res: Response) => {
     try {
         const { company, date, imageUrl, location, price, title } = req.body;
 
@@ -101,7 +108,7 @@ const getEventById: RequestHandler<{ eventId: string }> = async (req, res) => {
     }
 };
 
-app.get('/events/:eventId', getEventById);
+app.get('/events/:eventId', validateEventId, getEventById);
 
 // PUT - Update an event by eventId
 const updateEventById: RequestHandler = async (req, res, next) => {
@@ -137,7 +144,7 @@ const updateEventById: RequestHandler = async (req, res, next) => {
     }
 };
 
-app.put('/events/:eventId', updateEventById);
+app.put('/events/:eventId', validateEventId, validateEvent,updateEventById);
 
 
 // PATCH - Update partial fields of an event by eventId
@@ -174,7 +181,7 @@ const patchEventById: RequestHandler = async (req, res, next) => {
     }
 };
 
-app.patch('/events/:eventId', patchEventById);
+app.patch('/events/:eventId', validateEventId, validateEvent,patchEventById);
 
 
 // DELETE - Remove an event by eventId
@@ -199,8 +206,15 @@ const deleteEventById: RequestHandler = async (req, res, next) => {
     }
 };
 
-app.delete('/events/:eventId', deleteEventById);
+app.delete('/events/:eventId', validateEventId, deleteEventById);
 
+app.use((req: Request, res: Response, next:NextFunction) => {
+    const error: CustomError = new Error('Not Found');
+    error.status = 404;
+    next(error);
+});
+
+app.use(customErrorHandler);
 
 const PORT = 3000;
 app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
